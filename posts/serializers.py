@@ -1,19 +1,29 @@
 from rest_framework import serializers
-from .models import User, Post, Comment
+from django.contrib.auth.models import User
+from .models import Post, Comment
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'created_at']
+        fields = ['id', 'username', 'email']
+
+class AuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username']
 
 class PostSerializer(serializers.ModelSerializer):
+    author = AuthorSerializer(read_only=True)
     comments = serializers.StringRelatedField(many=True, read_only=True)
 
     class Meta:
         model = Post
-        fields = ['id', 'content', 'author', 'created_at', 'comments']
+        fields = ['id', 'title', 'content', 'post_type', 'metadata', 'author', 'created_at', 'comments']
 
 class CommentSerializer(serializers.ModelSerializer):
+    author = AuthorSerializer(read_only=True)
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all())
+
     class Meta:
         model = Comment
         fields = ['id', 'text', 'author', 'post', 'created_at']
@@ -21,9 +31,4 @@ class CommentSerializer(serializers.ModelSerializer):
     def validate_post(self, value):
         if not Post.objects.filter(id=value.id).exists():
             raise serializers.ValidationError("Post not found.")
-        return value
-
-    def validate_author(self, value):
-        if not User.objects.filter(id=value.id).exists():
-            raise serializers.ValidationError("Author not found.")
         return value
