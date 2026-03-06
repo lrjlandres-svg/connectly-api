@@ -11,6 +11,7 @@ from .serializers import PostSerializer, CommentSerializer
 from .factories.post_factory import PostFactory
 from .singletons.logger_singleton import LoggerSingleton
 from .singletons.config_manager import ConfigManager
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 # Initialize singletons
 logger = LoggerSingleton().get_logger()
@@ -492,4 +493,90 @@ def delete_comment(request, comment_id):
         
     except Exception as e:
         logger.error(f"Delete comment error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+    
+    # ========== NEWS FEED ENDPOINT ==========
+
+@csrf_exempt
+@api_view(['GET'])
+def news_feed(request):
+    """
+    News feed endpoint with sorting and pagination
+    Query parameters:
+    - page: page number (default: 1)
+    - page_size: items per page (default: 20, max: 100)
+    - sort: sort order ('newest', 'oldest') (default: 'newest')
+    - filter: filter type ('all', 'following', 'liked') (default: 'all')
+    """
+    try:
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=401)
+        
+        # Get query parameters
+        page = request.GET.get('page', 1)
+        page_size = request.GET.get('page_size', 20)
+        sort = request.GET.get('sort', 'newest')
+        filter_type = request.GET.get('filter', 'all')
+        
+        # Validate page_size
+        try:
+            page_size = int(page_size)
+            if page_size > 100:
+                page_size = 100
+            if page_size < 1:
+                page_size = 20
+        except ValueError:
+            page_size = 20
+        
+        # Build query based on filter
+        if filter_type == 'following':
+            # Get posts from users this user follows
+            following_users = Following.objects.filter(follower=request.user).values_list('following', flat=True)
+            posts = Post.objects.filter(author__in=following_users)
+        elif filter_type == 'liked':
+            # Get posts liked by this user
+            liked_post_ids = Like.objects.filter(user=request.user).values_list('post', flat=True)
+            posts = Post.objects.filter(id__in=liked_post_ids)
+        else:
+            # Default: all posts
+            posts = Post.objects.all()
+        
+        # Apply sorting
+        if sort == 'oldest':
+            posts = posts.order_by('created_at')
+        else:
+            posts = posts.order_by('-created_at')  # Newest first (default)
+        
+        # Prefetch related data for performance
+        posts = posts.select_related('author').prefetch_related('comments', 'likes')
+        
+        # Paginate results
+        paginator = Paginator(posts, page_size)
+        
+        try:
+            paginated_posts = paginator.page(page)
+        except PageNotAnInteger:
+            paginated_posts = paginator.page(1)
+        except EmptyPage:
+            paginated_posts = paginator.page(paginator.num_pages)
+        
+        # Serialize posts
+        serializer = PostSerializer(paginated_posts, many=True)
+        
+        # Build response
+        response_data = {
+            'page': paginated_posts.number,
+            'page_size': page_size,
+            'total_pages': paginator.num_pages,
+            'total_posts': paginator.count,
+            'filter': filter_type,
+            'sort': sort,
+            'posts': serializer.data
+        }
+        
+        logger.info(f"User {request.user.username} accessed news feed - Page {page}, Filter: {filter_type}")
+        return Response(response_data, status=200)
+        
+    except Exception as e:
+        logger.error(f"News feed error: {str(e)}")
         return Response({'error': str(e)}, status=500)

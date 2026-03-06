@@ -5,7 +5,8 @@ from .views import (
     create_text_post, create_image_post, create_video_post, create_link_post,
     get_comments, create_comment,
     like_post, unlike_post,
-    get_post_comments, add_comment_to_post, delete_comment
+    get_post_comments, add_comment_to_post, delete_comment,
+    news_feed  # Add this import
 )
 
 urlpatterns = [
@@ -15,6 +16,9 @@ urlpatterns = [
     
     # Users
     path('users/', get_users, name='users'),
+    
+    # News Feed
+    path('feed/', news_feed, name='news_feed'),
     
     # Posts - Factory Pattern endpoints
     path('posts/', get_posts, name='posts'),
