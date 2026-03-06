@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Post, Comment
+from .models import Post, Comment, Like
 from .serializers import PostSerializer, CommentSerializer
 from .factories.post_factory import PostFactory
 from .singletons.logger_singleton import LoggerSingleton
@@ -310,4 +310,186 @@ def create_comment(request):
         return Response(serializer.data, status=201)
     except Exception as e:
         logger.error(f"Create comment error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+    
+    # ========== LIKE ENDPOINTS ==========
+
+@csrf_exempt
+@api_view(['POST'])
+def like_post(request, post_id):
+    """
+    Like a post
+    """
+    try:
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=401)
+        
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            logger.warning(f"Like failed: Post {post_id} not found")
+            return Response({'error': 'Post not found'}, status=404)
+        
+        # Check if user already liked this post
+        like, created = Like.objects.get_or_create(
+            user=request.user,
+            post=post
+        )
+        
+        if not created:
+            # User already liked this post
+            logger.info(f"User {request.user.username} already liked post {post_id}")
+            return Response({
+                'message': 'You already liked this post',
+                'like_count': post.like_count
+            }, status=200)
+        
+        logger.info(f"User {request.user.username} liked post {post_id}")
+        return Response({
+            'message': 'Post liked successfully',
+            'like_count': post.like_count
+        }, status=201)
+        
+    except Exception as e:
+        logger.error(f"Like post error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+@csrf_exempt
+@api_view(['DELETE'])
+def unlike_post(request, post_id):
+    """
+    Unlike a post
+    """
+    try:
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=401)
+        
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            return Response({'error': 'Post not found'}, status=404)
+        
+        # Delete the like if it exists
+        deleted_count, _ = Like.objects.filter(
+            user=request.user,
+            post=post
+        ).delete()
+        
+        if deleted_count == 0:
+            return Response({
+                'message': 'You have not liked this post',
+                'like_count': post.like_count
+            }, status=200)
+        
+        logger.info(f"User {request.user.username} unliked post {post_id}")
+        return Response({
+            'message': 'Post unliked successfully',
+            'like_count': post.like_count
+        }, status=200)
+        
+    except Exception as e:
+        logger.error(f"Unlike post error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+# ========== COMMENT ENDPOINTS ==========
+
+@csrf_exempt
+@api_view(['GET'])
+def get_post_comments(request, post_id):
+    """
+    Get all comments for a specific post
+    """
+    try:
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            return Response({'error': 'Post not found'}, status=404)
+        
+        # Get comments with pagination (optional)
+        page_size = config.get_setting('DEFAULT_PAGE_SIZE')
+        comments = Comment.objects.filter(post=post).order_by('-created_at')[:page_size]
+        serializer = CommentSerializer(comments, many=True)
+        
+        return Response({
+            'post_id': post_id,
+            'comment_count': post.comment_count,
+            'comments': serializer.data
+        }, status=200)
+        
+    except Exception as e:
+        logger.error(f"Get post comments error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+@csrf_exempt
+@api_view(['POST'])
+def add_comment_to_post(request, post_id):
+    """
+    Add a comment to a specific post
+    """
+    try:
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=401)
+        
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            logger.warning(f"Comment failed: Post {post_id} not found")
+            return Response({'error': 'Post not found'}, status=404)
+        
+        text = request.data.get('text')
+        
+        if not text or text.strip() == '':
+            return Response({'error': 'Comment text is required'}, status=400)
+        
+        if len(text) > 1000:
+            return Response({'error': 'Comment text cannot exceed 1000 characters'}, status=400)
+        
+        # Create comment
+        comment = Comment.objects.create(
+            text=text.strip(),
+            author=request.user,
+            post=post
+        )
+        
+        logger.info(f"User {request.user.username} commented on post {post_id}")
+        serializer = CommentSerializer(comment)
+        
+        return Response({
+            'message': 'Comment added successfully',
+            'comment': serializer.data,
+            'comment_count': post.comment_count
+        }, status=201)
+        
+    except Exception as e:
+        logger.error(f"Add comment error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+@csrf_exempt
+@api_view(['DELETE'])
+def delete_comment(request, comment_id):
+    """
+    Delete a comment (only by author or admin)
+    """
+    try:
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=401)
+        
+        try:
+            comment = Comment.objects.get(id=comment_id)
+        except Comment.DoesNotExist:
+            return Response({'error': 'Comment not found'}, status=404)
+        
+        # Check if user is the author
+        if comment.author != request.user:
+            return Response({'error': 'You can only delete your own comments'}, status=403)
+        
+        comment.delete()
+        logger.info(f"User {request.user.username} deleted comment {comment_id}")
+        
+        return Response({
+            'message': 'Comment deleted successfully'
+        }, status=200)
+        
+    except Exception as e:
+        logger.error(f"Delete comment error: {str(e)}")
         return Response({'error': str(e)}, status=500)
