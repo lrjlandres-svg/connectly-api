@@ -31,14 +31,24 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    # Django built-in apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',  # Required for allauth
+    
+    # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    
+    # Your apps
     'posts',
 ]
 
@@ -46,12 +56,12 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    #'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
-
 ROOT_URLCONF = 'connectly_project.urls'
 
 TEMPLATES = [
@@ -152,3 +162,38 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+# ========== SITE ID (Required for allauth) ==========
+SITE_ID = 1
+
+# ========== AUTHENTICATION BACKENDS ==========
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# ========== ALLAUTH SETTINGS ==========
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_LOGOUT_ON_GET = True
+
+# ========== SOCIAL ACCOUNT SETTINGS ==========
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'OAUTH_PKCE_ENABLED': True,
+    }
+}
+
+# ========== LOGIN/LOGOUT REDIRECTS ==========
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'

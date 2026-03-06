@@ -5,11 +5,13 @@ from .views import (
     create_text_post, create_image_post, create_video_post, create_link_post,
     get_comments, create_comment
 )
+from .views_google_oauth import google_login
 
 urlpatterns = [
     # Authentication
     path('register/', register_view, name='register'),
     path('login/', login_view, name='login'),
+    path('auth/google/login/', google_login, name='google_login'),
     
     # Users
     path('users/', get_users, name='users'),
