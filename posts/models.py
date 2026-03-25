@@ -27,6 +27,28 @@ class Post(models.Model):
     @property
     def comment_count(self):
         return self.comments.count()
+    
+    PRIVACY_CHOICES = [
+        ('public', 'Public - Visible to everyone'),
+        ('private', 'Private - Visible only to you'),
+    ]
+    
+    # ... existing fields ...
+    privacy = models.CharField(
+        max_length=10,
+        choices=PRIVACY_CHOICES,
+        default='public'
+    )
+    
+    # ... existing methods ...
+    
+    def can_view(self, user):
+        """Check if user can view this post"""
+        if self.privacy == 'public':
+            return True
+        return self.author == user
+    
+    
 
 class Like(models.Model):
     user = models.ForeignKey(User, related_name='likes', on_delete=models.CASCADE)

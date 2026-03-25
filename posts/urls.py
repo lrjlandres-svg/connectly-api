@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import admin_delete_post, admin_delete_comment, get_post_detail, delete_own_post
 from .views import (
     register_view, login_view, get_users,
     get_posts, create_post,
@@ -38,4 +39,20 @@ urlpatterns = [
     path('posts/<int:post_id>/comments/', get_post_comments, name='get_post_comments'),
     path('posts/<int:post_id>/comments/add/', add_comment_to_post, name='add_comment_to_post'),
     path('comments/<int:comment_id>/delete/', delete_comment, name='delete_comment'),
+
+     # RBAC Admin Endpoints
+    path('admin/posts/<int:post_id>/delete/', admin_delete_post, name='admin_delete_post'),
+    path('admin/comments/<int:comment_id>/delete/', admin_delete_comment, name='admin_delete_comment'),
+    
+    # Privacy-Enforced Endpoints
+    path('posts/<int:post_id>/detail/', get_post_detail, name='get_post_detail'),
+    path('posts/<int:post_id>/delete/', delete_own_post, name='delete_own_post'),
+
+    # RBAC Admin Endpoints
+path('admin/posts/<int:post_id>/delete/', admin_delete_post, name='admin_delete_post'),
+path('admin/comments/<int:comment_id>/delete/', admin_delete_comment, name='admin_delete_comment'),
+
+# Privacy Endpoints
+path('posts/<int:post_id>/detail/', get_post_detail, name='get_post_detail'),
+path('posts/<int:post_id>/delete/', delete_own_post, name='delete_own_post'),
 ]

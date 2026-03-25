@@ -45,10 +45,17 @@ class PostSerializer(serializers.ModelSerializer):
     likes = LikeSerializer(many=True, read_only=True)
     like_count = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
+    privacy = serializers.ChoiceField(choices=Post.PRIVACY_CHOICES, read_only=True)
 
     class Meta:
         model = Post
         fields = ['id', 'title', 'content', 'post_type', 'metadata', 'author', 'created_at', 'comments', 'likes', 'like_count', 'comment_count']
+        model = Post
+        fields = [
+            'id', 'title', 'content', 'post_type', 'metadata', 
+            'author', 'created_at', 'comments', 'likes', 
+            'like_count', 'comment_count', 'privacy'  # ADD privacy
+        ]
     
     def get_like_count(self, obj):
         return obj.like_count
